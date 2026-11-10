@@ -1,0 +1,10 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local plugin install artifacts (not part of the source tree)
+*.log
+*.bak-*

@@ -1,0 +1,57 @@
+name: wakatime
+label: WakaTime
+kind: standalone
+version: 0.1.0
+manifest_version: 2
+api_version: 1
+license: MIT
+author: Darryl Dias
+homepage: https://wakatime.com
+description: >
+  WakaTime coding-time analytics for Hermes Agent. Sends WakaTime heartbeats for files
+  Hermes writes, patches or reads through the installed wakatime-cli (project and language
+  auto-detected), reports today's coding time and AI line totals, inspects and syncs the
+  offline heartbeat queue, sends manual heartbeats, and fetches REST API stats when a
+  personal OAuth token is configured. Reads ~/.wakatime.cfg; the plugin stores no keys.
+provides_tools:
+  - wakatime_status
+  - wakatime_today
+  - wakatime_heartbeat
+  - wakatime_offline
+  - wakatime_sync
+  - wakatime_stats
+provides_hooks:
+  - post_tool_call
+optional_env:
+  - name: WAKATIME_CLI
+    description: "Path to the wakatime-cli executable. Default: ~/.wakatime/wakatime-cli(.exe), then PATH."
+  - name: WAKATIME_OAUTH_TOKEN
+    description: "Personal WakaTime OAuth access token for REST API stats (plugin API keys are write-only)."
+    prompt: "WakaTime OAuth access token (optional)"
+    password: true
+config_schema:
+  oauth_token:
+    type: secret
+    default: ""
+    description: "Personal WakaTime OAuth access token used for REST API stats outside today."
+  fallback_project:
+    type: str
+    default: "hermes"
+    description: "Project name sent when wakatime-cli cannot auto-detect a project."
+  min_heartbeat_interval_seconds:
+    type: int
+    default: 60
+    description: "Minimum seconds between automatic heartbeats for the same file."
+  track_file_edits:
+    type: bool
+    default: true
+    description: "Send heartbeats after Hermes file edit/read tool calls."
+  heartbeat_sync_limit:
+    type: int
+    default: 1
+    description: "Offline heartbeats synced alongside each heartbeat. 0 syncs all; 1 keeps hook latency low."
+tags:
+  - wakatime
+  - coding-time
+  - ai-coding
+  - analytics
