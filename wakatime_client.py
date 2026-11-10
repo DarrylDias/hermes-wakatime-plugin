@@ -195,12 +195,18 @@ def summarize_today(data: dict) -> dict:
     rng = data.get("range") if isinstance(data.get("range"), dict) else {}
     ai_additions = grand.get("ai_additions")
     ai_deletions = grand.get("ai_deletions")
+    seconds = grand.get("total_seconds") or 0
+    raw_text = grand.get("text") or ""
+    # wakatime-cli rounds sub-minute totals to "0 secs"; prefer an exact duration for small values.
+    time_text = raw_text
+    if not raw_text or (raw_text == "0 secs" and float(seconds or 0) > 0):
+        time_text = summarize_duration_seconds(seconds)
     return {
         "range": rng.get("date"),
         "range_text": rng.get("text"),
         "account_timezone": rng.get("timezone"),
-        "total_seconds": grand.get("total_seconds") or 0,
-        "time_text": grand.get("text") or "",
+        "total_seconds": seconds,
+        "time_text": time_text,
         "ai_additions": ai_additions,
         "ai_deletions": ai_deletions,
         "ai_model_total_cost": grand.get("ai_model_total_cost"),

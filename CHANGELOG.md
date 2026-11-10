@@ -22,3 +22,5 @@ All notable changes to this plugin are recorded here. The format follows
   account's timezone rather than the PC's.
 - Pure-helper unit tests for line changes, heartbeat arguments, summaries, credential masking and
   tool-result gating.
+- Report sub-minute durations accurately when wakatime-cli formats the dashboard total as
+  "0 secs".
