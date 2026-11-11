@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Optional
 
 from . import wakatime_client as client
+from . import wakatime_install as installer
 from . import wakatime_paths as paths
 from . import wakatime_tools as tools
 
@@ -54,6 +56,26 @@ def setup_cli(parser: argparse.ArgumentParser) -> None:
     )
     reset.add_argument("--yes", action="store_true", help="Skip the confirmation prompt")
 
+    install_cli = sub.add_parser(
+        "install-cli",
+        help="Download the official wakatime-cli release for this OS/arch (consent required)",
+    )
+    install_cli.add_argument(
+        "--version",
+        dest="release_version",
+        default="latest",
+        metavar="TAG",
+        help="Release tag (v2.28.4 or 2.28.4); default latest",
+    )
+    install_cli.add_argument(
+        "--destination",
+        default=None,
+        help="Directory to install into (default: ~/.wakatime)",
+    )
+    install_cli.add_argument("--force", action="store_true", help="Replace an existing CLI after consent")
+    install_cli.add_argument("--yes", action="store_true", help="Skip the consent prompt")
+    install_cli.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+
 
 def _print_json(payload: dict) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -81,8 +103,12 @@ def cmd_status(as_json: bool = False) -> int:
         _print_json(payload)
         return 0 if payload.get("ok") else 1
     print(f"Hermes WakaTime plugin v{paths.PLUGIN_VERSION}")
-    print(f"CLI: {payload.get('cli_path') or 'NOT FOUND'}"
-          + (f" ({payload.get('cli_version')})" if payload.get("cli_version") else ""))
+    if not payload.get("cli_path"):
+        print("CLI: NOT FOUND")
+        print("  Bootstrap it: hermes wakatime install-cli --yes")
+    else:
+        print(f"CLI: {payload.get('cli_path')}"
+              + (f" ({payload.get('cli_version')})" if payload.get("cli_version") else ""))
     print(f"Config: {payload.get('config_path') or 'NOT FOUND'}")
     key = payload.get("api_key_source")
     print(f"API key: {paths.mask_key(paths.api_key_config()) if key else 'not configured'}"
@@ -300,6 +326,83 @@ def cmd_reset_backoff(args: argparse.Namespace) -> int:
     return 0 if changed else 1
 
 
+def _version_matches(installed: Optional[str], tag: str) -> bool:
+    return bool(installed) and tag.lstrip("v").lower() in str(installed).lower()
+
+
+def cmd_install_cli(args: argparse.Namespace) -> int:
+    requested_version = getattr(args, "release_version", None) or "latest"
+    destination = Path(args.destination).expanduser() if args.destination else (paths.wakatime_home() / ".wakatime")
+
+    def fail(message: str, code: int) -> int:
+        if args.json:
+            _print_json({"ok": False, "error": message})
+        else:
+            print(message)
+        return code
+
+    try:
+        plan = installer.install_plan(requested_version, destination=destination)
+    except installer.InstallerError as exc:
+        return fail(str(exc), 1)
+    print_plan = f"""WakaTime CLI install plan:
+  release:      {plan['tag']}
+  platform:     {plan['system']}-{plan['arch']}
+  asset:        {plan['asset']} (SHA-256 verified from checksums_sha256.txt)
+  destination:  {plan['destination_dir']}
+  executable:   {plan['executable_path']}
+  existing CLI: {plan['existing_path'] or 'not found'}
+"""
+    already = plan.get("existing_version")
+    if already and _version_matches(already, plan["tag"]) and not args.force:
+        if args.json:
+            _print_json({"ok": True, "already_installed": True, **plan})
+        else:
+            print(f"Already installed: {plan['executable_path']} ({already}).")
+            print("Nothing downloaded. Use --force to replace it.")
+        return 0
+    if not args.json:
+        print(print_plan)
+        if already:
+            print(f"An existing CLI at the destination is {already}; it will be replaced.")
+    if not args.yes:
+        if not sys.stdin.isatty():
+            return fail("Consent required: rerun with --yes to download and install.", 2)
+        try:
+            answer = input("Install this release? [y/N] ").strip().lower()
+        except (EOFError, OSError, KeyboardInterrupt):
+            return fail("Consent required: rerun with --yes to download and install.", 2)
+        if answer not in {"y", "yes"}:
+            return fail("Not installed.", 2)
+    elif not args.json:
+        print(f"Consent granted with --yes for {plan['tag']} -> {plan['destination_dir']}.")
+    if not args.json:
+        print(f"Downloading {plan['tag']} {plan['asset']} ...")
+    try:
+        result = installer.perform_install(
+            requested_version,
+            destination=destination,
+            force=args.force,
+        )
+    except installer.InstallerError as exc:
+        return fail(str(exc), 1)
+    if result.get("already_installed"):
+        if args.json:
+            _print_json({"ok": True, **result})
+        else:
+            print(f"Already installed: {result['destination']}.")
+        return 0
+    if args.json:
+        _print_json({"ok": True, **result})
+    else:
+        print(f"Installed and verified: {result['destination']} ({result['installed_version']}).")
+        print(f"SHA-256 verified: {result['sha256_verified']}")
+        if result.get("backup"):
+            print(f"Previous CLI backed up at: {result['backup']}")
+        print("Verify with: hermes wakatime status")
+    return 0
+
+
 def handle_cli(args: argparse.Namespace) -> int:
     command = getattr(args, "wakatime_command", None)
     if command == "today":
@@ -314,4 +417,6 @@ def handle_cli(args: argparse.Namespace) -> int:
         return cmd_stats(args)
     if command == "reset-backoff":
         return cmd_reset_backoff(args)
+    if command == "install-cli":
+        return cmd_install_cli(args)
     return cmd_status(getattr(args, "json", False))

@@ -38,7 +38,8 @@ _STATUS = {
         "Report the local WakaTime setup used by Hermes: wakatime-cli path and version, "
         "configured API key source (never the key itself), config paths, offline heartbeat "
         "count, an active API backoff, whether a personal OAuth token is available, and today's "
-        "coding time. Use this before other wakatime tools when diagnosing tracking."
+        "coding time. Use this before other wakatime tools when diagnosing tracking. If the CLI "
+        "is missing, `hermes wakatime install-cli --yes` bootstraps the official release."
     ),
     "parameters": {"type": "object", "properties": {}, "required": []},
 }

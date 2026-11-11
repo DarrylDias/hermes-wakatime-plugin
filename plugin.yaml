@@ -1,7 +1,7 @@
 name: wakatime
 label: WakaTime
 kind: standalone
-version: 0.1.0
+version: 0.2.0
 manifest_version: 2
 api_version: 1
 license: MIT
@@ -12,7 +12,8 @@ description: >
   Hermes writes, patches or reads through the installed wakatime-cli (project and language
   auto-detected), reports today's coding time and AI line totals, inspects and syncs the
   offline heartbeat queue, sends manual heartbeats, and fetches REST API stats when a
-  personal OAuth token is configured. Reads ~/.wakatime.cfg; the plugin stores no keys.
+  personal OAuth token is configured. Reads ~/.wakatime.cfg; the plugin stores no keys and
+  includes a consented install-cli bootstrap for the official wakatime-cli release.
 provides_tools:
   - wakatime_status
   - wakatime_today

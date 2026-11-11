@@ -4,6 +4,21 @@ All notable changes to this plugin are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-10
+
+### Added
+
+- `hermes wakatime install-cli` bootstrap: resolves the latest official WakaTime CLI release
+  (or a pinned tag), maps the current OS/arch to the correct release zip, downloads it from GitHub,
+  verifies the release's `checksums_sha256.txt` SHA-256 digest, installs atomically into
+  `~/.wakatime`, and verifies the binary with `--version`.
+- Explicit consent before downloading the CLI binary: interactive confirmation by default;
+  non-interactive use requires `--yes`. `--force`, `--version`, `--destination` and `--json` are
+  supported.
+- Install hints in `wakatime_status` and `hermes wakatime status` when the CLI is missing.
+- Unit tests for platform/asset mapping, checksum parsing, executable extraction from release
+  archives, version normalization and installed-version matching.
+
 ## [0.1.0] - 2026-11-10
 
 ### Added

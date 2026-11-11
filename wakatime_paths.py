@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 PLUGIN_NAME = "wakatime"
-PLUGIN_VERSION = "0.1.0"
+PLUGIN_VERSION = "0.2.0"
 EDITOR_NAME = "hermes"
 EDITOR_LEVEL_VERSION = "1.0.0"
 

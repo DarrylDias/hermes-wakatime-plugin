@@ -14,7 +14,7 @@ from . import wakatime_cli, wakatime_schemas as s, wakatime_tools as t
 logger = logging.getLogger(__name__)
 
 TOOLSET = "wakatime"
-PLUGIN_VERSION = "0.1.0"
+PLUGIN_VERSION = "0.2.0"
 
 
 def register(ctx) -> None:

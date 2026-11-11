@@ -17,7 +17,7 @@ OAuth token.
 | `wakatime_sync` tool | Flush the offline queue with before/after counts. |
 | `wakatime_stats` tool | `today` via CLI; other ranges via REST with a personal OAuth token. |
 | `post_tool_call` hook | Sends rate-limited `ai coding` heartbeats after Hermes `write_file`, `patch` and `read_file` calls (plus common tool aliases). |
-| `hermes wakatime` CLI | `status`, `today`, `offline`, `sync`, `send`, `stats`, `reset-backoff`. |
+| `hermes wakatime` CLI | `status`, `today`, `offline`, `sync`, `send`, `stats`, `reset-backoff`, `install-cli`. |
 
 ## Why WakaTime needs a CLI
 
@@ -36,12 +36,33 @@ token. This plugin follows the same model as WakaTime's official OpenCode plugin
 ## Requirements
 
 - Hermes Agent with plugin support (`hermes plugins ...`).
-- `wakatime-cli` installed, normally at `~/.wakatime/wakatime-cli.exe` (Windows) or on `PATH`
-  elsewhere. Download: https://github.com/wakatime/wakatime-cli/releases
+- `wakatime-cli`, normally at `~/.wakatime/wakatime-cli.exe` (Windows) or `~/.wakatime/wakatime-cli`
+  on macOS/Linux. Install it manually from
+  https://github.com/wakatime/wakatime-cli/releases, or use the plugin's consented bootstrap:
+  `hermes wakatime install-cli` (add `--yes` for non-interactive use).
 - `api_key` under `[settings]` in `~/.wakatime.cfg` (or `WAKATIME_HOME/.wakatime.cfg`), from
   https://wakatime.com/api-key.
 - Optional for non-today REST stats: a personal OAuth access token, https://wakatime.com/oauth,
   exported as `WAKATIME_OAUTH_TOKEN` or stored in the plugin setting `oauth_token`.
+
+## Bootstrap the CLI (consented)
+
+`install-cli` resolves the latest official release (or `--version v2.28.4`), selects the correct
+release asset for this OS/architecture, fetches the release checksum for the plan, downloads the
+CLI zip from GitHub after consent, verifies its SHA-256 digest, installs atomically into
+`~/.wakatime`, and verifies the binary with `--version`. It never downloads the CLI binary
+automatically: the default flow prints the release, asset, destination and existing CLI and asks
+for confirmation. Non-interactive runs require `--yes`; `--force` replaces an existing CLI, and
+`--destination DIR`, `--version TAG` and `--json` are supported.
+
+```bash
+hermes wakatime install-cli            # show plan, then ask [y/N]
+hermes wakatime install-cli --yes      # consented non-interactive install
+hermes wakatime install-cli --version v2.28.4 --force --yes --destination ~/.wakatime
+```
+
+Supported release assets: Windows (amd64/arm64/386), macOS (amd64/arm64), Linux
+(amd64/arm64/arm/386/riscv64), FreeBSD/NetBSD/OpenBSD where those assets exist.
 
 ## Install
 
@@ -50,7 +71,7 @@ modules must sit together inside a Hermes plugin directory named `wakatime`.
 
 ```bash
 # Clone to Hermes' plugin directory (name it exactly wakatime)
-git clone <your-repo-url> ~/.hermes/plugins/wakatime
+git clone https://github.com/DarrylDias/hermes-wakatime-plugin.git ~/.hermes/plugins/wakatime
 
 # On Windows, Hermes HOME is usually %LOCALAPPDATA%\hermes
 # Clone/copy there too, for example:
@@ -126,6 +147,7 @@ When the API is rate-limited or a CLI backoff is active, the CLI queues heartbea
 
 ```bash
 hermes wakatime status
+hermes wakatime install-cli            # bootstrap the official CLI, with consent
 hermes wakatime today --hide-categories
 hermes wakatime offline --limit 50
 hermes wakatime sync --limit 0 --timeout 300

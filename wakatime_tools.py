@@ -98,6 +98,11 @@ def status_payload(plugin_ctx: Any = None) -> dict:
         except client.WakaTimeClientError as exc:
             today_error = str(exc)
     warnings = []
+    if cli is None:
+        warnings.append(
+            "wakatime-cli was not found. Bootstrap the official release with "
+            "`hermes wakatime install-cli --yes`, or set WAKATIME_CLI."
+        )
     if backoff.get("active"):
         warnings.append(
             f"wakatime-cli API backoff is active until {backoff.get('backoff_at')} "
@@ -111,6 +116,7 @@ def status_payload(plugin_ctx: Any = None) -> dict:
         "ok": cli is not None,
         "cli_path": str(cli) if cli else None,
         "cli_version": version,
+        "install_hint": "hermes wakatime install-cli --yes" if cli is None else None,
         "config_path": str(cfg) if cfg else None,
         "api_key_source": api_source,
         "api_key_configured": api_source is not None,

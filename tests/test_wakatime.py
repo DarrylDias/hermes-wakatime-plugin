@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +21,7 @@ if PACKAGE not in sys.modules:
     spec.loader.exec_module(module)
 
 from hermes_wakatime_plugin import wakatime_client as client  # noqa: E402
+from hermes_wakatime_plugin import wakatime_install as installer  # noqa: E402
 from hermes_wakatime_plugin import wakatime_paths as paths  # noqa: E402
 from hermes_wakatime_plugin import wakatime_tools as tools  # noqa: E402
 
@@ -59,7 +61,7 @@ class HeartbeatArgsTests(unittest.TestCase):
         self.assertTrue(os.path.isabs(entity))
         self.assertIn("--plugin", args)
         plugin_value = args[args.index("--plugin") + 1]
-        self.assertIn("hermes-wakatime/0.1.0", plugin_value)
+        self.assertIn("hermes-wakatime/0.2.0", plugin_value)
         self.assertIn("--write", args)
         self.assertIn("--ai-line-changes", args)
         self.assertIn("--sync-ai-disabled", args)
@@ -130,7 +132,7 @@ class CredentialMaskingTests(unittest.TestCase):
 
     def test_plugin_string(self):
         self.assertTrue(paths.plugin_string().startswith("hermes/"))
-        self.assertIn("hermes-wakatime/0.1.0", paths.plugin_string())
+        self.assertIn("hermes-wakatime/0.2.0", paths.plugin_string())
 
 
 class ToolSuccessTests(unittest.TestCase):
@@ -144,6 +146,77 @@ class ToolSuccessTests(unittest.TestCase):
         self.assertEqual(tools._path_from_args({"path": "src/x.py"}), "src/x.py")
         self.assertEqual(tools._path_from_args({"file_path": "a.py"}), "a.py")
         self.assertIsNone(tools._path_from_args({"command": "ls"}))
+
+
+class InstallerTests(unittest.TestCase):
+    def test_platform_assets(self):
+        cases = [
+            ("Windows", "x86_64", "wakatime-cli-windows-amd64.zip"),
+            ("Windows", "arm64", "wakatime-cli-windows-arm64.zip"),
+            ("Linux", "x86_64", "wakatime-cli-linux-amd64.zip"),
+            ("Linux", "aarch64", "wakatime-cli-linux-arm64.zip"),
+            ("Linux", "riscv64", "wakatime-cli-linux-riscv64.zip"),
+            ("Darwin", "arm64", "wakatime-cli-darwin-arm64.zip"),
+            ("FreeBSD", "amd64", "wakatime-cli-freebsd-amd64.zip"),
+        ]
+        for system, machine, expected in cases:
+            self.assertEqual(installer.asset_name(system, machine), expected, (system, machine))
+
+    def test_unsupported_and_missing_platform(self):
+        with self.assertRaises(installer.InstallerError):
+            installer.asset_name("Solaris", "sparc")
+        with self.assertRaises(installer.InstallerError):
+            installer.asset_name("Darwin", "i386")
+        with self.assertRaises(installer.InstallerError):
+            installer.asset_name("Windows", "arm")
+
+    def test_executable_name(self):
+        self.assertEqual(installer.executable_name("Windows"), "wakatime-cli.exe")
+        self.assertEqual(installer.executable_name("Linux"), "wakatime-cli")
+
+    def test_version_normalization(self):
+        self.assertIsNone(installer._normalize_version("latest"))
+        self.assertIsNone(installer._normalize_version(None))
+        self.assertEqual(installer._normalize_version("v2.28.4"), "2.28.4")
+        self.assertEqual(installer._normalize_version("2.28.4"), "2.28.4")
+        with self.assertRaises(installer.InstallerError):
+            installer._normalize_version("develop")
+
+    def test_checksum_parser(self):
+        body = b"7601aa...\nnot-an-asset.zip\nabc"
+        valid = b"76f90160dd5268f3b74be2aa75323c9387e79db0874cae71269d1d74c88dd661 wakatime-cli-windows-amd64.zip\n"
+        with unittest.mock.patch.object(installer, "_request", return_value=valid):
+            self.assertEqual(
+                installer.expected_sha256("v2.28.4", "wakatime-cli-windows-amd64.zip"),
+                "76f90160dd5268f3b74be2aa75323c9387e79db0874cae71269d1d74c88dd661",
+            )
+        with unittest.mock.patch.object(installer, "_request", return_value=body), self.assertRaises(installer.InstallerError):
+            installer.expected_sha256("v2.28.4", "wakatime-cli-windows-amd64.zip")
+
+    def test_extract_executable_from_release_style_zip(self):
+        import io
+        import zipfile
+
+        for entry in ("wakatime-cli-linux-amd64", "wakatime-cli-windows-amd64.exe"):
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, "w") as zf:
+                zf.writestr(entry, b"binary-content")
+            self.assertEqual(installer._extract_executable(data.getvalue(), "wakatime-cli"), b"binary-content")
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, "w") as zf:
+            zf.writestr("notes.txt", b"no executable")
+        with self.assertRaises(installer.InstallerError):
+            installer._extract_executable(data.getvalue(), "wakatime-cli")
+
+
+class VersionCompareTests(unittest.TestCase):
+    def test_installed_version_matching(self):
+        from hermes_wakatime_plugin import wakatime_cli
+
+        self.assertTrue(wakatime_cli._version_matches("v2.28.4", "v2.28.4"))
+        self.assertTrue(wakatime_cli._version_matches("wakatime-cli v2.28.4", "v2.28.4"))
+        self.assertFalse(wakatime_cli._version_matches("v2.27.0", "v2.28.4"))
+        self.assertFalse(wakatime_cli._version_matches(None, "v2.28.4"))
 
 
 if __name__ == "__main__":
